@@ -342,14 +342,14 @@ void initWebGpu() {
   WGPUSwapChainDescriptor swapDesc = {};
   swapDesc.usage = WGPUTextureUsage_RenderAttachment;
   swapDesc.format = WGPUTextureFormat_BGRA8Unorm;
-  swapDesc.width = 1920;
-  swapDesc.height = 1080;
+  swapDesc.width = 1920 * 2;
+  swapDesc.height = 1080 * 2;
   swapDesc.presentMode = WGPUPresentMode_Fifo;
 
   ctx.swapChain = wgpuDeviceCreateSwapChain(ctx.device, surface, &swapDesc);
 
   // dummy texture.
-  createTextures(1920, 1080);
+  createTextures(1920 * 2, 1080 * 2);
 }
 
 static void (

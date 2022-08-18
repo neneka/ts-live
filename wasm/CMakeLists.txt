@@ -36,6 +36,11 @@ set(FFMPEG_CONFIGURE_COMMAND_LIST
     --enable-cross-compile
     --disable-x86asm
     --disable-inline-asm
+    --disable-stripping
+    --disable-runtime-cpudetect
+    --disable-autodetect
+    --enable-gpl
+    --enable-nonfree
     --nm=emnm
     --ar=${CMAKE_C_COMPILER_AR}
     --ranlib=${CMAKE_C_COMPILER_RANLIB}
@@ -52,14 +57,20 @@ set(FFMPEG_CONFIGURE_COMMAND_LIST
     --disable-decoders
     --enable-decoder=aac
     --enable-decoder=mpeg2video
+    --enable-decoder=hevc
     --disable-hwaccels
     --disable-muxers
     --disable-demuxers
     --enable-demuxer=mpegts
+    --enable-demuxer=hevc
     --disable-parsers
     --enable-parser=aac
     --enable-parser=mpegvideo
+    --enable-parser=hevc
     --disable-bsfs
+    --enable-bsf=aac_adtstoasc
+    --enable-bsf=hevc_metadata
+    --enable-bsf=hevc_mp4toannexb
     --disable-protocols
     --disable-devices
     --disable-filters
@@ -77,6 +88,7 @@ ExternalProject_Add(
   BUILD_COMMAND ${CMAKE_COMMAND} -E env emmake make SRC_PATH=${SOURCE_DIR} -j24
   INSTALL_COMMAND bash -c "[ -e ${CMAKE_CURRENT_BINARY_DIR}/ffmpeg-prefix/src/ffmpeg-stamp/ffmpeg-done ] || make install"
   # PATCH_COMMAND patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg-wasm.patch
+  # PATCH_COMMAND patch -p1 < ${CMAKE_CURRENT_SOURCE_DIR}/nvenc-yuv420p10le-n5.patch
 )
 
 

@@ -151,7 +151,7 @@ void commitInputData(size_t nextSize) {
   std::lock_guard<std::mutex> lock(inputBufferMtx);
   inputBufferWriteIndex += nextSize;
   waitCv.notify_all();
-  spdlog::debug("commit {} bytes", nextSize);
+  // spdlog::debug("commit {} bytes", nextSize);
 }
 
 // reset
@@ -267,38 +267,38 @@ void videoDecoderThreadFunc(bool &terminateFlag) {
       spdlog::error("avcodec_send_packet(video) failed: {} {}", ret,
                     av_err2str(ret));
       // return;
-    }
-    while (avcodec_receive_frame(videoCodecContext, frame) == 0) {
-      const AVPixFmtDescriptor *desc =
-          av_pix_fmt_desc_get((AVPixelFormat)(frame->format));
-      int bufferSize = av_image_get_buffer_size((AVPixelFormat)frame->format,
-                                                frame->width, frame->height, 1);
-      spdlog::debug("VideoFrame: {}x{}x{} pixfmt:{} key:{} interlace:{} "
-                    "tff:{} codecContext->field_order:{} pts:{} "
-                    "stream.timebase:{} bufferSize:{}",
-                    frame->width, frame->height, frame->channels, frame->format,
-                    frame->key_frame, frame->interlaced_frame,
-                    frame->top_field_first, videoCodecContext->field_order,
-                    frame->pts, av_q2d(videoStream->time_base), bufferSize);
-      if (desc == nullptr) {
-        spdlog::debug("desc is NULL");
-      } else {
+    } else {
+      while (avcodec_receive_frame(videoCodecContext, frame) == 0) {
+        const AVPixFmtDescriptor *desc =
+            av_pix_fmt_desc_get((AVPixelFormat)(frame->format));
+        int bufferSize = av_image_get_buffer_size(
+            (AVPixelFormat)frame->format, frame->width, frame->height, 1);
+        spdlog::debug("VideoFrame: {}x{}x{} pixfmt:{} key:{} interlace:{} "
+                      "tff:{} codecContext->field_order:{} pts:{} "
+                      "stream.timebase:{} bufferSize:{}",
+                      frame->width, frame->height, frame->channels,
+                      frame->format, frame->key_frame, frame->interlaced_frame,
+                      frame->top_field_first, videoCodecContext->field_order,
+                      frame->pts, av_q2d(videoStream->time_base), bufferSize);
+        if (desc == nullptr) {
+          spdlog::debug("desc is NULL");
+        } else {
+          spdlog::debug(
+              "desc name:{} nb_components:{} comp[0].plane:{} .offet:{} "
+              "comp[1].plane:{} .offset:{} comp[2].plane:{} .offset:{}",
+              desc->name, desc->nb_components, desc->comp[0].plane,
+              desc->comp[0].offset, desc->comp[1].plane, desc->comp[1].offset,
+              desc->comp[2].plane, desc->comp[2].offset);
+        }
         spdlog::debug(
-            "desc name:{} nb_components:{} comp[0].plane:{} .offet:{} "
-            "comp[1].plane:{} .offset:{} comp[2].plane:{} .offset:{}",
-            desc->name, desc->nb_components, desc->comp[0].plane,
-            desc->comp[0].offset, desc->comp[1].plane, desc->comp[1].offset,
-            desc->comp[2].plane, desc->comp[2].offset);
-      }
-      spdlog::debug(
-          "buf[0]size:{} buf[1].size:{} buf[2].size:{} buffer_size:{}",
-          frame->buf[0]->size, frame->buf[1]->size, frame->buf[2]->size,
-          bufferSize);
-      if (initPts < 0) {
-        initPts = frame->pts;
-      }
-      frame->time_base.den = videoStream->time_base.den;
-      frame->time_base.num = videoStream->time_base.num;
+            "buf[0]size:{} buf[1].size:{} buf[2].size:{} buffer_size:{}",
+            frame->buf[0]->size, frame->buf[1]->size, frame->buf[2]->size,
+            bufferSize);
+        if (initPts < 0) {
+          initPts = frame->pts;
+        }
+        frame->time_base.den = videoStream->time_base.den;
+        frame->time_base.num = videoStream->time_base.num;
 
       AVFrame *cloneFrame = av_frame_clone(frame);
       {
@@ -512,7 +512,7 @@ void decoderThreadFunc() {
   // decode phase
   while (!resetedDecoder) {
     if (videoFrameQueue.size() > 30 || videoPacketQueue.size() > 10) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(30));
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
       continue;
     }
     // decode frames
@@ -621,10 +621,10 @@ int64_t channel_layout = 0;
 int sample_rate = 0;
 
 void decoderMainloop() {
-  spdlog::debug("decoderMainloop videoFrameQueue:{} audioFrameQueue:{} "
+  /*spdlog::debug("decoderMainloop videoFrameQueue:{} audioFrameQueue:{} "
                 "videoPacketQueue:{} audioPacketQueue:{}",
                 videoFrameQueue.size(), audioFrameQueue.size(),
-                videoPacketQueue.size(), audioPacketQueue.size());
+                videoPacketQueue.size(), audioPacketQueue.size());*/
 
   if (videoStream && !audioStreamList.empty() && !statsCallback.isNull()) {
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -707,10 +707,10 @@ void decoderMainloop() {
                            audioStreamList[0]->codecpar->sample_rate;
 
     // 1フレーム分くらいはズレてもいいからこれでいいか。フレーム真面目に考えると良くわからない。
-    bool showFlag = estimatedAudioPlayTime > videoPtsTime;
+    bool showFlag = videoPtsTime < estimatedAudioPlayTime;
 
     // リップシンク条件を満たしてたらVideoFrame再生
-    if (showFlag) {
+    if (true) {
       {
         std::lock_guard<std::mutex> lock(videoFrameMtx);
         videoFrameQueue.pop_front();
@@ -721,6 +721,9 @@ void decoderMainloop() {
       drawWebGpu(currentFrame);
 
       av_frame_free(&currentFrame);
+    } else {
+      // spdlog::info("no satisfy ripsync: video: {} / audio: {} / esti: {}",
+      //              videoPtsTime, audioPtsTime, estimatedAudioPlayTime);
     }
   }
 
